@@ -1,0 +1,62 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+LAYOUT_WITH_LEGEND()
+
+Person(user, "Пользователь", "Покупка товаров")
+
+System_Boundary(central, "NovaMarket") {
+    Container(mobile, "Mobile Application", "Android/iOS", "Мобильное приложение")
+    Container(gateway, "API Gateway", "Java, Spring Boot", "Единая точка входа, управление безопасностью, стабильное API, агрегация данных")
+    Container(user_service, "User Service", "Java, Spring Boot", "Данные пользователя")
+    ContainerDb(user_db, "User DB", "PostgreSQL")
+    Container(notification_service, "Notification Service", "Java, Spring Boot", "Отправка уведомлений")
+    ContainerDb(notification_db, "Notification DB", "PostgreSQL")
+    Container(product_service, "Product Service", "Java, Spring Boot", "Товары")
+    ContainerDb(product_db, "Product DB", "PostgreSQL")
+    Container(order_service, "Order Service", "Java, Spring Boot", "Оформление заказов")
+    ContainerDb(order_db, "Order DB", "PostgreSQL")
+    Container(order_history_service, "Order History Service", "Java, Spring Boot", "История заказов")
+    ContainerDb(order_history_db, "Order History DB", "PostgreSQL")
+    Container(warehouse_service, "Warehouse Service", "Java, Spring Boot", "Складские операции")
+    ContainerDb(warehouse_db, "Warehouse DB", "PostgreSQL")
+    Container(payment_service, "Payment Service", "Java, Spring Boot", "Осуществление платежей, проверка оплаты")
+    ContainerDb(payment_db, "Payment DB", "PostgreSQL")
+    Container(logistic_service, "Logistic Service", "Java, Spring Boot", "Оформление доставки, трекинг заказов")
+    ContainerDb(logistic_db, "Logistic DB", "PostgreSQL")
+    ContainerQueue(order_event, "Order Events Queue", "События об изменении заказа", "Kafka")
+}
+
+Rel(user, mobile, "Просмотр, выбор товаров и оформление заказов")
+Rel(mobile, gateway, "Запросы", "REST/HTTP")
+Rel(gateway, user_service, "Проксирование запросов", "REST/HTTP")
+Rel(gateway, product_service, "Проксирование запросов", "REST/HTTP")
+Rel(gateway, order_service, "Проксирование запросов", "REST/HTTP")
+Rel(gateway, logistic_service, "Проксирование запросов", "REST/HTTP")
+Rel(gateway, warehouse_service, "Проксирование запросов", "REST/HTTP")
+Rel(gateway, payment_service, "Проксирование запросов", "REST/HTTP")
+Rel(user_service, user_db, "Информация о пользователе", "JDBC/SQL")
+Rel(notification_service, notification_db, "Уведомления", "JDBC/SQL")
+Rel(product_service, product_db, "Операции с товарами", "JDBC/SQL")
+Rel(order_service, order_db, "Операции с заказами", "JDBC/SQL")
+Rel(order_history_service, order_history_db, "Операции с историей заказов", "JDBC/SQL")
+Rel(warehouse_service, warehouse_db, "Операции с товарами на складе", "JDBC/SQL")
+Rel(payment_service, payment_db, "Платежные операции пользователей", "JDBC/SQL")
+Rel(logistic_service, logistic_db, "Операции логистики", "JDBC/SQL")
+
+Rel(order_service, warehouse_service, "Заказ подтвержден пользователем", "Kafka")
+Rel(order_service, order_event, "Отправка событий заказ подтвержден/успешен/отменен", "Kafka")
+Rel(order_event, notification_service, "Отправка уведомлений по заказам", "Kafka")
+Rel(order_event, order_history_service, "Сохранение истории по заказам", "Kafka")
+Rel(warehouse_service, payment_service, "Товар на складе зарезервирован", "Kafka")
+Rel(payment_service, logistic_service, "Оплата по заказу проведена", "Kafka")
+Rel(logistic_service, notification_service, "Заявка в службе сформирована", "Kafka")
+
+System_Ext(logistic_provider, "Логистические системы", "Доставка, трекинг")
+System_Ext(payment_provider, "Платежные системы", "Оплата, возврат денежных средств")
+System_Ext(notification_provider, "Провайдеры уведомлений", "Отправка уведомлений")
+
+Rel(logistic_service, logistic_provider, "Интеграция с внешней системой")
+Rel(payment_service, payment_provider, "Интеграция с внешней системой")
+Rel(notification_service, notification_provider, "Интеграция с внешней системой")
+
+@enduml
