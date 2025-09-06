@@ -41,8 +41,13 @@ Rel(logistic_service, logistic_db, "Операции логистики", "JDBC/
 
 Rel(order_service, warehouse_service, "Заказ подтвержден пользователем", "Kafka")
 Rel(warehouse_service, payment_service, "Товар на складе зарезервирован", "Kafka")
+Rel(warehouse_service, payment_service, "Резервирование отменено", "Kafka")
+Rel(warehouse_service, order_service, "Отмена резервирования", "Kafka")
 Rel(payment_service, logistic_service, "Оплата по заказу проведена", "Kafka")
+Rel(payment_service, warehouse_service, "Оплата не прошла", "Kafka")
 Rel(logistic_service, notification_service, "Заявка в службе сформирована", "Kafka")
+Rel(logistic_service, warehouse_service, "Заявка на доставку отклонена", "Kafka")
+Rel(logistic_service, order_service, "Заказ успешно обработан", "Kafka")
 
 System_Ext(logistic_provider, "Логистические системы", "Доставка, трекинг")
 System_Ext(payment_provider, "Платежные системы", "Оплата, возврат денежных средств")

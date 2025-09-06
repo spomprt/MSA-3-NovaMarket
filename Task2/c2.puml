@@ -48,8 +48,13 @@ Rel(order_service, order_event, "Отправка событий заказ по
 Rel(order_event, notification_service, "Отправка уведомлений по заказам", "Kafka")
 Rel(order_event, order_history_service, "Сохранение истории по заказам", "Kafka")
 Rel(warehouse_service, payment_service, "Товар на складе зарезервирован", "Kafka")
+Rel(warehouse_service, payment_service, "Резервирование отменено", "Kafka")
+Rel(warehouse_service, order_service, "Отмена резервирования", "Kafka")
 Rel(payment_service, logistic_service, "Оплата по заказу проведена", "Kafka")
+Rel(payment_service, warehouse_service, "Оплата не прошла", "Kafka")
 Rel(logistic_service, notification_service, "Заявка в службе сформирована", "Kafka")
+Rel(logistic_service, warehouse_service, "Заявка на доставку отклонена", "Kafka")
+Rel(logistic_service, order_service, "Заказ успешно обработан", "Kafka")
 
 System_Ext(logistic_provider, "Логистические системы", "Доставка, трекинг")
 System_Ext(payment_provider, "Платежные системы", "Оплата, возврат денежных средств")
