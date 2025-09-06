@@ -1,0 +1,78 @@
+@startuml
+!theme plain
+title Сценарий отказа логистики
+
+actor "Пользователь" as User
+participant "Mobile App" as Mobile
+participant "API Gateway" as Gateway
+participant "Order Service" as OrderService
+participant "Warehouse Service" as WarehouseService
+participant "Payment Service" as PaymentService
+participant "Logistic Service" as LogisticService
+participant "Notification Service" as NotificationService
+participant "External Payment" as PaymentProvider
+participant "External Logistic" as LogisticProvider
+participant "External Notification" as NotificationProvider
+
+== Создание заказа ==
+User -> Mobile: Создать заказ
+Mobile -> Gateway: POST /orders
+Gateway -> OrderService: Создать заказ
+OrderService -> OrderService: Сохранить заказ в БД
+OrderService --> Gateway: Заказ создан
+Gateway --> Mobile: Заказ создан
+Mobile --> User: Заказ создан
+
+== Подтверждение заказа ==
+User -> Mobile: Подтвердить заказ
+Mobile -> Gateway: PUT /orders/{id}/confirm
+Gateway -> OrderService: Подтвердить заказ
+OrderService -> OrderService: Обновить статус заказа
+OrderService -> OrderService: Публикация события OrderConfirmed
+
+== Резервация товара ==
+OrderService -> WarehouseService: OrderConfirmed event
+WarehouseService -> WarehouseService: Проверить наличие товара
+WarehouseService -> WarehouseService: Зарезервировать товар
+WarehouseService -> WarehouseService: Публикация события ProductsReserved
+
+== Обработка платежа ==
+WarehouseService -> PaymentService: ProductsReserved event
+PaymentService -> PaymentService: Создать платежную транзакцию
+PaymentService -> PaymentProvider: Обработать платеж
+PaymentProvider --> PaymentService: Платеж успешен
+PaymentService -> PaymentService: Сохранить платеж в БД
+PaymentService -> PaymentService: Публикация события PaymentSucceeded
+
+== Попытка создания заявки на доставку ==
+PaymentService -> LogisticService: PaymentSucceeded event
+LogisticService -> LogisticService: Создать заявку на доставку
+LogisticService -> LogisticProvider: Отправить заявку на доставку
+LogisticProvider --> LogisticService: Заявка отклонена
+LogisticService -> LogisticService: Сохранить отклоненную заявку в БД
+LogisticService -> LogisticService: Публикация события ShippingRequestRejected
+
+== Отмена резервации ==
+LogisticService -> WarehouseService: ShippingRequestRejected event
+WarehouseService -> WarehouseService: Отменить резервацию товара
+WarehouseService -> WarehouseService: Обновить статус резервации
+WarehouseService -> WarehouseService: Публикация события ReservationCancelled
+
+== Возврат средств ==
+WarehouseService -> PaymentService: ReservationCancelled event
+PaymentService -> PaymentProvider: Инициировать возврат средств
+PaymentProvider --> PaymentService: Возврат выполнен
+PaymentService -> PaymentService: Сохранить возврат в БД
+PaymentService -> PaymentService: Публикация события RefundSucceeded
+
+== Отмена заказа после возврата средств ==
+PaymentService -> OrderService: RefundSucceeded event
+OrderService -> OrderService: Обновить статус заказа на "Отменен"
+
+== Уведомление пользователя ==
+OrderService -> NotificationService: OrderFailed event
+NotificationService -> NotificationProvider: Отправить уведомление об отмене и возврате
+NotificationProvider --> NotificationService: Уведомление отправлено
+NotificationService -> NotificationService: Публикация события ClientNotified
+
+@enduml
