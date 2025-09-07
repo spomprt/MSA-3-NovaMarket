@@ -1,0 +1,16 @@
+# servicemonitor-scalable-pod-identifier.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: scalable-pod-identifier
+  labels:
+    release: kube-prometheus-stack   # имя твоего релиза Helm
+spec:
+  selector:
+    matchLabels:
+      app: scalable-pod-identifier   # совпадает с labels у Service
+  endpoints:
+    - port: http                     # у твоего Service порт уже называется "http"
+      path: /metrics                 # поменяй на /actuator/prometheus, если нужно
+      interval: 15s
+      scrapeTimeout: 5s

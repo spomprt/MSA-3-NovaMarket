@@ -10,12 +10,13 @@ spec:
   minReplicas: 1
   maxReplicas: 5
   metrics:
-    - type: Resource
-      resource:
-        name: memory
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second   # <- из prometheus-adapter
         target:
-          type: Utilization
-          averageUtilization: 70
+          type: AverageValue
+          averageValue: "20"               # целевой RPS на 1 pod, подбери под себя
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 300
