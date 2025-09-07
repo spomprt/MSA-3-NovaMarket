@@ -44,3 +44,4 @@ NotificationProvider --> NotificationService: Уведомление отпра�
 NotificationService -> NotificationService: Публикация события ClientNotified
 
 @enduml
+

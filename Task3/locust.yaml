@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: loadtest
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: locustfile
+  namespace: loadtest
+data:
+  locustfile.py: |
+    from locust import FastHttpUser, task, between
+
+    # Подправь пути под своё приложение
+    class ApiUser(FastHttpUser):
+      wait_time = between(0.1, 0.5)   # короткие паузы, реалистичнее чем чистый «огонь»
+      network_timeout = 30.0
+      connection_timeout = 5.0
+
+      @task(5)
+      def index(self):
+        self.client.get("/")
+
+      @task(1)
+      def ping(self):
+        self.client.get("/ping")
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust-master
+  namespace: loadtest
+  labels: { app: locust, role: master }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: locust, role: master }
+  template:
+    metadata:
+      labels: { app: locust, role: master }
+    spec:
+      containers:
+        - name: master
+          image: locustio/locust:latest
+          args:
+            - -f
+            - /mnt/locust/locustfile.py
+            - --master
+            - --web-port
+            - "8089"
+            - --loglevel
+            - INFO
+          ports:
+            - containerPort: 8089  # Web UI
+            - containerPort: 5557  # master<->worker
+            - containerPort: 5558  # master<->worker (резерв)
+          volumeMounts:
+            - name: locustfile
+              mountPath: /mnt/locust
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              memory: "512Mi"
+      volumes:
+        - name: locustfile
+          configMap:
+            name: locustfile
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: locust-master
+  namespace: loadtest
+  labels: { app: locust, role: master }
+spec:
+  type: NodePort
+  selector: { app: locust, role: master }
+  ports:
+    - name: web
+      port: 8089
+      targetPort: 8089
+      # nodePort можно не указывать — Kubernetes выберет сам
+    - name: master-p1
+      port: 5557
+      targetPort: 5557
+    - name: master-p2
+      port: 5558
+      targetPort: 5558
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust-worker
+  namespace: loadtest
+  labels: { app: locust, role: worker }
+spec:
+  replicas: 3   # увеличивай по мере необходимости
+  selector:
+    matchLabels: { app: locust, role: worker }
+  template:
+    metadata:
+      labels: { app: locust, role: worker }
+    spec:
+      containers:
+        - name: worker
+          image: locustio/locust:latest
+          args:
+            - -f
+            - /mnt/locust/locustfile.py
+            - --worker
+            - --master-host
+            - locust-master.loadtest.svc.cluster.local
+          env:
+            # Тестируем твой сервис по кластерному DNS — БЕЗ port-forward
+            - name: LOCUST_HOST
+              value: "http://scalable-pod-identifier.default.svc.cluster.local"
+          volumeMounts:
+            - name: locustfile
+              mountPath: /mnt/locust
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              memory: "512Mi"
+      volumes:
+        - name: locustfile
+          configMap:
+            name: locustfile
