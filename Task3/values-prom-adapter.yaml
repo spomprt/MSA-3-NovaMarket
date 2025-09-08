@@ -1,0 +1,61 @@
+# values-prom-adapter.yaml
+# === Где искать Prometheus ===
+prometheus:
+  # сервис Prometheus из kube-prometheus-stack (проверь своё имя/namespace)
+  url: http://kube-prometheus-stack-prometheus.monitoring.svc
+  port: 9090
+  # Если Prometheus за ингрессом с префиксом пути, раскомментируй:
+  # path: /prometheus
+
+# Уровень логирования адаптера (6 — очень подробно для отладки)
+logLevel: 4
+
+# Небольшая «гигиена» дискавери, чтобы метрики не «мигали»
+extraArgs:
+  metrics-relist-interval: 1m
+  metrics-max-age: 2m
+
+# === Правила экспонирования метрик в custom.metrics.k8s.io ===
+rules:
+  # По желанию можно выключить дефолтные правила чарта
+  default: false
+
+  custom:
+    # ---------- RPS на pod для Spring Boot Micrometer ----------
+    - seriesQuery: 'http_server_requests_seconds_count{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace: { resource: "namespace" }
+          pod:       { resource: "pod" }
+      name:
+        as: "http_requests_per_second"
+      # RPS = rate(...) за 1 минуту, группируем по pod/namespace, но селекторы подставит сам адаптер
+      metricsQuery: >
+        sum by (<<.GroupBy>>) (
+          rate(http_server_requests_seconds_count{<<.LabelMatchers>>}[1m])
+        )
+
+      # --- Доп. фильтры (необязательно): раскомментируй и подстрой под себя ---
+      # Пример: исключить 5xx и сам эндпоинт метрик (если засоряет статистику)
+      # metricsQuery: >
+      #   sum by (<<.GroupBy>>) (
+      #     rate(http_server_requests_seconds_count{
+      #       <<.LabelMatchers>>,
+      #       status!~"5..",
+      #       uri!~"/actuator(/prometheus)?|/metrics"
+      #     }[1m])
+      #   )
+
+    # ---------- (опционально) RPS по ingress-nginx на pod ----------
+    # Если захочешь масштабироваться по RPS ingress'а, добавь похожее правило и используй в HPA.
+    # - seriesQuery: 'nginx_ingress_controller_requests{namespace!="",pod!=""}'
+    #   resources:
+    #     overrides:
+    #       namespace: { resource: "namespace" }
+    #       pod:       { resource: "pod" }
+    #   name:
+    #     as: "ingress_requests_per_second"
+    #   metricsQuery: >
+    #     sum by (<<.GroupBy>>) (
+    #       rate(nginx_ingress_controller_requests{<<.LabelMatchers>>}[1m])
+    #     )
